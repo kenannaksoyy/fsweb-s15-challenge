@@ -1,59 +1,42 @@
+const mW = require('./auth-middleware');
+const bcrypt = require('bcryptjs');
+const { insertUser } = require('../models/users-model');
+const { createUserToken } = require('../utils/createUserToken');
+
 const router = require('express').Router();
 
-router.post('/register', (req, res) => {
-  res.end('kayıt olmayı ekleyin, lütfen!');
-  /*
-    EKLEYİN
-    Uçnoktanın işlevselliğine yardımcı olmak için middlewarelar yazabilirsiniz.
-    2^8 HASH TURUNU AŞMAYIN!
-
-    1- Yeni bir hesap kaydetmek için istemci "kullanıcı adı" ve "şifre" sağlamalıdır:
-      {
-        "username": "Captain Marvel", // `users` tablosunda var olmalıdır
-        "password": "foobar"          // kaydedilmeden hashlenmelidir
-      }
-
-    2- BAŞARILI kayıtta,
-      response body `id`, `username` ve `password` içermelidir:
-      {
-        "id": 1,
-        "username": "Captain Marvel",
-        "password": "2a$08$jG.wIGR2S4hxuyWNcBf9MuoC4y0dNy7qC/LbmtuFBSdIhWks2LhpG"
-      }
-
-    3- Request bodyde `username` ya da `password` yoksa BAŞARISIZ kayıtta,
-      response body şunu içermelidir: "username ve şifre gereklidir".
-
-    4- Kullanıcı adı alınmışsa BAŞARISIZ kayıtta,
-      şu mesajı içermelidir: "username alınmış".
-  */
+router.post('/register',mW.inputCheck,mW.usernameCheck, async(req, res,next) => {
+  try{
+    const hashPassword = bcrypt.hashSync(req.body.password, 8);
+    const userObj = {
+      username:req.body.username,
+      password:hashPassword,
+      rolename:"user"
+    };
+    const createdUser=await insertUser(userObj);
+    res.status(201).json(createdUser);
+  }
+  catch(err){
+    next(err);
+  }
 });
 
-router.post('/login', (req, res) => {
-  res.end('girişi ekleyin, lütfen!');
-  /*
-    EKLEYİN
-    Uçnoktanın işlevselliğine yardımcı olmak için middlewarelar yazabilirsiniz.
-
-    1- Var olan bir kullanıcı giriş yapabilmek için bir `username` ve `password` sağlamalıdır:
-      {
-        "username": "Captain Marvel",
-        "password": "foobar"
-      }
-
-    2- BAŞARILI girişte,
-      response body `message` ve `token` içermelidir:
-      {
-        "message": "welcome, Captain Marvel",
-        "token": "eyJhbGciOiJIUzI ... ETC ... vUPjZYDSa46Nwz8"
-      }
-
-    3- req body de `username` ya da `password` yoksa BAŞARISIZ giriş,
-      şu mesajı içermelidir: "username ve password gereklidir".
-
-    4- "username" db de yoksa ya da "password" yanlışsa BAŞARISIZ giriş,
-      şu mesajı içermelidir: "geçersiz kriterler".
-  */
+router.post('/login',mW.inputCheck,mW.usernameCheck,mW.passwordCheck, (req, res, next) => {
+  try{
+    const payload = {
+        username: req.user.username,
+        rolename: req.user.rolename
+    }
+    const token = createUserToken(payload,"1d");
+    res.status(200).json({
+      message:`welcome, ${req.user.username}`,
+      token:token,
+      user:req.user
+    });
+  }
+  catch(err){
+    next(err);
+  }
 });
 
 module.exports = router;
